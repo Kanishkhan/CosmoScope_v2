@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded;//, depth_draw_alpha_prepass;
+render_mode unshaded, blend_mix, depth_draw_never, cull_front;//, depth_draw_alpha_prepass;
 
 #define CLOUDS_ENABLED
 #define CLOUDS_MAX_RAYMARCH_STEPS 64
@@ -21,7 +21,7 @@ void vertex() {
 
 void fragment() {
 	bool b_discard = false;
-	atmosphere_fragment(u_depth_texture, SCREEN_UV, INV_PROJECTION_MATRIX, INV_VIEW_MATRIX,
+	atmosphere_fragment(texture(u_depth_texture, SCREEN_UV).x, SCREEN_UV, INV_PROJECTION_MATRIX, INV_VIEW_MATRIX,
 		VIEWPORT_SIZE, v_planet_center_viewspace, v_sun_center_viewspace, ALBEDO, ALPHA, b_discard);
 	if (b_discard) {
 		discard;

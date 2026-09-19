@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://mission_manager"]
+
+[ext_resource type="Script" path="res://missions/mission_manager.gd" id="1"]
+
+[node name="MissionManager" type="Node"]
+script = ExtResource("1")

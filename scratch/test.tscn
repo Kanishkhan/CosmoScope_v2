@@ -1,0 +1,21 @@
+[gd_scene load_steps=2 format=3]
+
+[sub_resource type="GDScript" id="GDScript_1"]
+script/source = "extends Node
+
+func _ready():
+	var f = FileAccess.open('res://scratch/diag_out.txt', FileAccess.WRITE)
+	f.store_line('READY RUNNING!')
+	var SolarSystemSetup = load('res://solar_system/solar_system_setup.gd')
+	var Settings = load('res://settings.gd')
+	var settings = Settings.new()
+	var bodies = SolarSystemSetup.create_solar_system_data(settings)
+	f.store_line('Bodies: ' + str(bodies.size()))
+	for b in bodies:
+		f.store_line('Body: ' + b.name + ' type: ' + str(b.type) + ' atmo: ' + str(b.atmosphere_mode))
+	f.close()
+	get_tree().quit()
+"
+
+[node name="Test" type="Node"]
+script = SubResource("GDScript_1")

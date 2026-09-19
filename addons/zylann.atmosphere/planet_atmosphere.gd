@@ -53,7 +53,7 @@ var _custom_shader : Shader
 
 @export var force_fullscreen := false
 
-var _far_mesh : BoxMesh
+var _far_mesh : SphereMesh
 var _near_mesh : QuadMesh
 var _mode := MODE_FAR
 var _mesh_instance : MeshInstance3D
@@ -95,8 +95,11 @@ func _init():
 	_near_mesh.flip_faces = true
 	
 	#_far_mesh = _create_far_mesh()
-	_far_mesh = BoxMesh.new()
-	_far_mesh.size = Vector3(1.0, 1.0, 1.0)
+	_far_mesh = SphereMesh.new()
+	_far_mesh.radius = 1.0
+	_far_mesh.height = 2.0
+	_far_mesh.radial_segments = 32
+	_far_mesh.rings = 16
 
 	_mesh_instance.mesh = _far_mesh
 	
@@ -206,9 +209,10 @@ func _get(p_key: StringName):
 		if value == null:
 			value = RenderingServer.shader_get_parameter_default(mat.shader, param_name)
 		return value
+	return null
 
 
-func _set(p_key: StringName, value):
+func _set(p_key: StringName, value) -> bool:
 	var key = String(p_key)
 	if key.begins_with("shader_params/"):
 		var param_name := key.substr(len("shader_params/"))
@@ -216,6 +220,8 @@ func _set(p_key: StringName, value):
 		mat.set_shader_parameter(param_name, value)
 		if _uses_baked_optical_depth and _shader_params_affecting_optical_depth.has(param_name):
 			_request_bake_optical_depth()
+		return true
+	return false
 
 
 func _get_configuration_warnings() -> PackedStringArray:
@@ -314,11 +320,14 @@ func _process(_delta):
 	if _mode == MODE_FAR:
 		if _prev_atmo_clip_distance != atmo_clip_distance:
 			_prev_atmo_clip_distance = atmo_clip_distance
-			# The mesh instance should not be scaled, so we resize the cube instead
-			var cm := BoxMesh.new()
-			cm.size = Vector3(atmo_clip_distance, atmo_clip_distance, atmo_clip_distance)
-			_mesh_instance.mesh = cm
-			_far_mesh = cm
+			# The mesh instance should not be scaled, so we resize the sphere instead
+			var sm := SphereMesh.new()
+			sm.radius = atmo_clip_distance * 0.5
+			sm.height = atmo_clip_distance
+			sm.radial_segments = 32
+			sm.rings = 16
+			_mesh_instance.mesh = sm
+			_far_mesh = sm
 	
 	var mat := _get_material()
 	

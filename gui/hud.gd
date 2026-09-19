@@ -66,6 +66,23 @@ func _process(_delta: float):
 			_planet_hover_audio_player.play()
 
 
+# ─── Fast Travel: click on planet ────────────────────────────────────────────
+func _unhandled_input(event: InputEvent) -> void:
+	# Only trigger when mouse is captured (player is in ship/character mode)
+	if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED:
+		return
+	if event is InputEventMouseButton:
+		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			var camera := get_viewport().get_camera_3d()
+			if camera == null:
+				return
+			var body := _find_pointed_planet(camera)
+			# Only trigger if clicking a planet that isn't the one we're orbiting
+			if body != null and body != _solar_system.get_reference_stellar_body():
+				get_viewport().set_input_as_handled()
+				_solar_system.request_fast_travel(body)
+
+
 func _get_stellar_body_type_name(body: StellarBody) -> String:
 	if body.type == StellarBody.TYPE_SUN:
 		return "Star"

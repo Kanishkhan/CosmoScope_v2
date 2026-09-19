@@ -35,6 +35,10 @@ const PlanetGrassyMaterial = preload("./materials/planet_material_grassy.tres")
 const WaterSeaMaterial = preload("./materials/water_sea_material.tres")
 const RockMaterial = preload("res://props/rocks/rock_material.tres")
 
+# Procedural planet body and ring shaders (no-placeholder visuals)
+const PlanetSurfaceShader = preload("./materials/planet_surface.gdshader")
+const SaturnRingsShader = preload("./materials/saturn_rings.gdshader")
+
 const Pebble1Mesh = preload("res://props/pebbles/pebble1.obj")
 const Rock1Mesh = preload("res://props/rocks/rock1.obj")
 const BigRock1Mesh = preload("res://props/big_rocks/big_rock1.obj")
@@ -49,6 +53,12 @@ const SAVE_FOLDER_PATH = "debug_data"
 
 # Scale used when the large world setting is enabled
 const LARGE_SCALE = 10.0
+
+# Planet surface type constants (must match planet_surface.gdshader)
+const SURFACE_ROCKY = 0
+const SURFACE_EARTH = 1
+const SURFACE_GAS_GIANT = 2
+const SURFACE_ICE_GIANT = 3
 
 
 static func create_solar_system_data(settings: Settings) -> Array[StellarBody]:
@@ -70,9 +80,22 @@ static func create_solar_system_data(settings: Settings) -> Array[StellarBody]:
 	planet.distance_to_parent = 14400.0
 	planet.self_revolution_time = 10.0 * 60.0
 	planet.orbit_revolution_time = 50.0 * 60.0
-	planet.atmosphere_mode = StellarBody.ATMOSPHERE_MONOCHROME
-	planet.atmosphere_color = Color(1.0, 0.4, 0.1)
+	planet.atmosphere_mode = StellarBody.ATMOSPHERE_DISABLED
 	planet.orbit_revolution_progress = -0.1
+	planet.day_ambient_sound = WindSound
+	bodies.append(planet)
+
+	planet = StellarBody.new()
+	planet.name = "Venus"
+	planet.type = StellarBody.TYPE_ROCKY
+	planet.radius = 1700.0
+	planet.parent_id = 0
+	planet.distance_to_parent = 19500.0
+	planet.self_revolution_time = 20.0 * 60.0
+	planet.orbit_revolution_time = 100.0 * 60.0
+	planet.atmosphere_mode = StellarBody.ATMOSPHERE_MONOCHROME
+	planet.atmosphere_color = Color(0.98, 0.90, 0.65)
+	planet.orbit_revolution_progress = 0.35
 	planet.day_ambient_sound = WindSound
 	bodies.append(planet)
 
@@ -108,7 +131,7 @@ static func create_solar_system_data(settings: Settings) -> Array[StellarBody]:
 	# moon is still moving while we reach it.
 	planet.distance_to_parent = 7500.0
 	planet.self_revolution_time = 10.0 * 60.0
-	planet.orbit_revolution_time = 10.0 * 60.0
+	planet.orbit_revolution_time = 100.0 * 60.0
 	planet.atmosphere_mode = StellarBody.ATMOSPHERE_DISABLED
 #	planet.atmosphere_color = Color(0.2, 0.2, 0.2)
 #	planet.atmosphere_color_for_scattering = Color(1.0, 1.0, 1.0)
@@ -142,9 +165,57 @@ static func create_solar_system_data(settings: Settings) -> Array[StellarBody]:
 	planet.self_revolution_time = 8.0 * 60.0
 	planet.orbit_revolution_time = 300.0 * 60.0
 	planet.atmosphere_mode = StellarBody.ATMOSPHERE_WITH_SCATTERING
-#	planet.atmosphere_color = Color(0.8, 0.6, 0.4)
+	planet.atmosphere_color = Color(0.95, 0.82, 0.65)
 	planet.day_ambient_sound = WindSound
 	planet.clouds_coverage_bias = 0.2
+	planet.clouds_coverage_cubemap = CloudCoverageTextureGas
+	bodies.append(planet)
+
+	planet = StellarBody.new()
+	planet.name = "Saturn"
+	planet.type = StellarBody.TYPE_GAS
+	planet.radius = 2700.0
+	planet.parent_id = 0
+	planet.distance_to_parent = 95000.0
+	planet.self_revolution_time = 8.0 * 60.0
+	planet.orbit_revolution_time = 400.0 * 60.0
+	planet.atmosphere_mode = StellarBody.ATMOSPHERE_WITH_SCATTERING
+	planet.atmosphere_color = Color(1.0, 0.9, 0.7)
+	planet.orbit_revolution_progress = 0.6
+	planet.day_ambient_sound = WindSound
+	planet.clouds_coverage_bias = 0.2
+	planet.clouds_coverage_cubemap = CloudCoverageTextureGas
+	bodies.append(planet)
+
+	planet = StellarBody.new()
+	planet.name = "Uranus"
+	planet.type = StellarBody.TYPE_GAS
+	planet.radius = 2200.0
+	planet.parent_id = 0
+	planet.distance_to_parent = 118000.0
+	planet.self_revolution_time = 9.0 * 60.0
+	planet.orbit_revolution_time = 500.0 * 60.0
+	planet.atmosphere_mode = StellarBody.ATMOSPHERE_WITH_SCATTERING
+	planet.atmosphere_color = Color(0.6, 0.9, 1.0)
+	planet.orbit_revolution_progress = 0.8
+	planet.day_ambient_sound = WindSound
+	planet.clouds_coverage_bias = 0.1
+	planet.clouds_coverage_cubemap = CloudCoverageTextureGas
+	bodies.append(planet)
+
+	planet = StellarBody.new()
+	planet.name = "Neptune"
+	planet.type = StellarBody.TYPE_GAS
+	planet.radius = 2100.0
+	planet.parent_id = 0
+	planet.distance_to_parent = 140000.0
+	planet.self_revolution_time = 9.0 * 60.0
+	planet.orbit_revolution_time = 600.0 * 60.0
+	planet.atmosphere_mode = StellarBody.ATMOSPHERE_WITH_SCATTERING
+	planet.atmosphere_color = Color(0.4, 0.55, 1.0)
+	planet.orbit_revolution_progress = 0.95
+	planet.day_ambient_sound = WindSound
+	planet.clouds_coverage_bias = 0.1
 	planet.clouds_coverage_cubemap = CloudCoverageTextureGas
 	bodies.append(planet)
 	
@@ -161,7 +232,160 @@ static func create_solar_system_data(settings: Settings) -> Array[StellarBody]:
 	return bodies
 
 
+# ─── Orbital LOD Planet Body ────────────────────────────────────────────────
+# Creates a spherical visual body visible from space for any planet.
+# For rocky planets this is supplementary to voxel terrain (fades on approach).
+# For gas giants this IS the primary body.
+static func _setup_planet_body(body: StellarBody, root: Node3D,
+		surface_type: int, b_color: Color, s_color: Color, t_color: Color,
+		ocean_color: Color = Color(0.1, 0.3, 0.7, 1.0),
+		ocean_thresh: float = 0.0, night_intensity: float = 0.0,
+		band_freq: float = 8.0, band_warp: float = 1.2,
+		storm_x: float = 0.0, storm_y: float = 0.0, storm_r: float = 0.0,
+		storm_color: Color = Color(0.85, 0.45, 0.3, 1.0)) -> MeshInstance3D:
+
+	var mat := ShaderMaterial.new()
+	mat.shader = PlanetSurfaceShader
+	mat.set_shader_parameter(&"planet_type", surface_type)
+	mat.set_shader_parameter(&"base_color", b_color)
+	mat.set_shader_parameter(&"secondary_color", s_color)
+	mat.set_shader_parameter(&"tertiary_color", t_color)
+	mat.set_shader_parameter(&"ocean_color", ocean_color)
+	mat.set_shader_parameter(&"ocean_threshold", ocean_thresh)
+	mat.set_shader_parameter(&"night_light_intensity", night_intensity)
+	mat.set_shader_parameter(&"band_frequency", band_freq)
+	mat.set_shader_parameter(&"band_warp", band_warp)
+	mat.set_shader_parameter(&"storm_x", storm_x)
+	mat.set_shader_parameter(&"storm_y", storm_y)
+	mat.set_shader_parameter(&"storm_radius", storm_r)
+	mat.set_shader_parameter(&"storm_color", storm_color)
+	# Sun direction updated at runtime by solar_system.gd
+	mat.set_shader_parameter(&"sun_direction", Vector3(1, 0, 0))
+
+	var sphere := SphereMesh.new()
+	sphere.radius = body.radius
+	sphere.height = body.radius * 2.0
+	sphere.radial_segments = 48
+	sphere.rings = 24
+
+	var mi := MeshInstance3D.new()
+	mi.name = "PlanetBody"
+	mi.mesh = sphere
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(mi)
+	return mi
+
+
+# ─── Ring System ─────────────────────────────────────────────────────────────
+static func _setup_rings(body: StellarBody, root: Node3D,
+		inner_frac: float = 0.35, ring_color_inner: Color = Color(0.85, 0.78, 0.62, 0.85),
+		ring_color_outer: Color = Color(0.6, 0.55, 0.45, 0.4),
+		tilt_deg: float = 0.0) -> void:
+	var ring_outer_radius := body.radius * 2.4
+
+	var mat := ShaderMaterial.new()
+	mat.shader = SaturnRingsShader
+	mat.set_shader_parameter(&"ring_color_inner", ring_color_inner)
+	mat.set_shader_parameter(&"ring_color_outer", ring_color_outer)
+	mat.set_shader_parameter(&"inner_radius_frac", inner_frac)
+	mat.set_shader_parameter(&"disc_half_size", ring_outer_radius)
+	mat.set_shader_parameter(&"sun_direction", Vector3(1, 0, 0))
+
+	# PlaneMesh creates a flat horizontal disc; subdivisions give the shader
+	# smooth radial distance interpolation across the ring area
+	var disc := PlaneMesh.new()
+	disc.size = Vector2(ring_outer_radius * 2.0, ring_outer_radius * 2.0)
+	disc.subdivide_width = 64
+	disc.subdivide_depth = 64
+
+	var mi := MeshInstance3D.new()
+	mi.name = "Rings"
+	mi.mesh = disc
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if tilt_deg != 0.0:
+		mi.rotation_degrees.z = tilt_deg
+	root.add_child(mi)
+
+
+# ─── Gas Giant Setup ─────────────────────────────────────────────────────────
+static func _setup_gas_giant(body: StellarBody, root: Node3D) -> void:
+	match body.name:
+		"Jupiter":
+			_setup_planet_body(body, root, SURFACE_GAS_GIANT,
+				Color(0.85, 0.58, 0.35),  # base: warm tan belts
+				Color(0.42, 0.22, 0.12),  # secondary: dark brown-red belts
+				Color(0.96, 0.90, 0.76),  # tertiary: cream zones
+				Color(0.1, 0.3, 0.7, 1.0), 0.0, 0.0,
+				12.0, 1.6,
+				0.05, -0.22, 0.13,  # Great Red Spot position/size
+				Color(0.92, 0.28, 0.15, 1.0))
+		"Saturn":
+			_setup_planet_body(body, root, SURFACE_GAS_GIANT,
+				Color(0.94, 0.84, 0.60),  # pale butterscotch gold
+				Color(0.72, 0.60, 0.40),  # golden brown bands
+				Color(0.98, 0.95, 0.82),  # bright pale zones
+				Color(0.1, 0.3, 0.7, 1.0), 0.0, 0.0,
+				8.0, 0.9, 0.0, 0.0, 0.0)
+			_setup_rings(body, root, 0.5,
+				Color(0.95, 0.88, 0.70, 0.90),
+				Color(0.65, 0.55, 0.42, 0.50),
+				27.0)
+		"Uranus":
+			_setup_planet_body(body, root, SURFACE_ICE_GIANT,
+				Color(0.35, 0.88, 0.92),  # distinctive cyan/aquamarine
+				Color(0.20, 0.68, 0.78),
+				Color(0.70, 0.95, 0.98),
+				Color(0.1, 0.3, 0.7, 1.0), 0.0, 0.0,
+				6.0, 0.5, 0.0, 0.0, 0.0)
+			_setup_rings(body, root, 0.66,
+				Color(0.65, 0.85, 0.95, 0.5),
+				Color(0.40, 0.65, 0.75, 0.25),
+				98.0)  # extreme axial tilt
+		"Neptune":
+			_setup_planet_body(body, root, SURFACE_ICE_GIANT,
+				Color(0.08, 0.25, 0.95),  # vivid deep cobalt azure
+				Color(0.04, 0.12, 0.60),  # deep ocean blue bands
+				Color(0.70, 0.85, 1.0),   # bright white/cyan cirrus bands
+				Color(0.1, 0.3, 0.7, 1.0), 0.0, 0.0,
+				7.0, 0.7,
+				-0.1, 0.1, 0.10,  # Great Dark Spot
+				Color(0.02, 0.05, 0.30, 1.0))
+
+
+# ─── Orbital Ring Lines ───────────────────────────────────────────────────────
+# Draws a circular orbit path around the sun as a thin bright line mesh.
+static func _setup_orbital_ring(distance: float, parent: Node3D) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.5, 0.6, 0.75, 0.35)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.no_depth_test = true
+
+	var points := 256
+	var arr := PackedVector3Array()
+	arr.resize(points + 1)
+	for i in range(points + 1):
+		var angle := float(i) / float(points) * TAU
+		arr[i] = Vector3(cos(angle) * distance, 0.0, sin(angle) * distance)
+
+	var im := ImmediateMesh.new()
+	im.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+	for p in arr:
+		im.surface_add_vertex(p)
+	im.surface_end()
+
+	var mi := MeshInstance3D.new()
+	mi.name = "OrbitRing"
+	mi.mesh = im
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(mi)
+
+
 static func _setup_sun(body: StellarBody, root: Node3D) -> DirectionalLight3D:
+
 	var mi := MeshInstance3D.new()
 	var mesh := SphereMesh.new()
 	mesh.radius = body.radius
@@ -227,8 +451,12 @@ static func update_atmosphere_settings(body: StellarBody, settings: Settings):
 		# Scattered atmosphere settings
 		atmo_density = 0.04 if settings.world_scale_x10 else 0.05
 		atmo.set_shader_parameter(&"u_atmosphere_modulate", body.atmosphere_color)
-		atmo.set_shader_parameter(&"u_scattering_strength",
-			1.0 if settings.world_scale_x10 else 6.0)
+		var sc_strength : float = 6.0
+		if body.type == StellarBody.TYPE_GAS:
+			sc_strength = 1.2
+		elif settings.world_scale_x10:
+			sc_strength = 1.0
+		atmo.set_shader_parameter(&"u_scattering_strength", sc_strength)
 		atmo.set_shader_parameter(&"u_atmosphere_ambient_color", body.atmosphere_ambient_color)
 	else:
 		if body.type == StellarBody.TYPE_GAS:
@@ -345,9 +573,6 @@ static func _setup_rocky_planet(body: StellarBody, root: Node3D, settings: Setti
 	#var sphere_normalmap_tex = ImageTexture.create_from_image(sphere_normalmap)
 	#mat.set_shader_parameter("u_global_normalmap", sphere_normalmap_tex)
 
-	var stream := VoxelStreamSQLite.new()
-	stream.database_path = str(SAVE_FOLDER_PATH, "/", body.name, ".sqlite")
-
 	var extra_lods := 0
 	if settings.world_scale_x10:
 		var temp := int(LARGE_SCALE)
@@ -364,7 +589,6 @@ static func _setup_rocky_planet(body: StellarBody, root: Node3D, settings: Setti
 	volume.lod_distance = 60.0
 	volume.collision_lod_count = 2
 	volume.generator = generator
-	volume.stream = stream
 	var view_distance := 100000.0
 	if settings.world_scale_x10:
 		view_distance *= LARGE_SCALE
@@ -372,8 +596,6 @@ static func _setup_rocky_planet(body: StellarBody, root: Node3D, settings: Setti
 	volume.voxel_bounds = AABB(Vector3(-pot, -pot, -pot), Vector3(2 * pot, 2 * pot, 2 * pot))
 	volume.lod_fade_duration = 0.3
 	volume.threaded_update_enabled = true
-	# Keep all edited blocks loaded. Leaving this off enables data streaming, but it is slower
-	volume.full_load_mode_enabled = true
 	
 	volume.normalmap_enabled = true
 	volume.normalmap_tile_resolution_min = 4
@@ -460,7 +682,7 @@ static func _configure_instancing_for_planet(body: StellarBody, volume: VoxelLod
 	item.setup_from_template(rock1_template)
 	rock1_template.free()
 	item.generator = instance_generator
-	item.persistent = true
+	item.persistent = false
 	item.lod_index = 2
 	item.name = "rock"
 	library.add_item(0, item)
@@ -475,7 +697,7 @@ static func _configure_instancing_for_planet(body: StellarBody, volume: VoxelLod
 	item = VoxelInstanceLibraryMultiMeshItem.new()
 	item.set_mesh(BigRock1Mesh, 0)
 	item.generator = instance_generator
-	item.persistent = true
+	item.persistent = false
 	item.lod_index = 3
 	item.name = "big_rock"
 	library.add_item(1, item)
@@ -503,7 +725,7 @@ static func _configure_instancing_for_planet(body: StellarBody, volume: VoxelLod
 	cone.material = RockMaterial
 	item.set_mesh(cone, 0)
 	item.generator = instance_generator
-	item.persistent = true
+	item.persistent = false
 	item.lod_index = 0
 	item.name = "stalactite"
 	library.add_item(3, item)
@@ -528,6 +750,45 @@ static func setup_stellar_body(body: StellarBody, parent: Node,
 	
 	elif body.type == StellarBody.TYPE_ROCKY:
 		_setup_rocky_planet(body, root, settings)
+		# Add an orbital LOD body sphere for long-range visibility (no placeholder — real material)
+		# This ensures the planet is always visible as a proper 3D sphere from space
+		var surface_type := SURFACE_ROCKY
+		var b_col := Color(0.6, 0.55, 0.48)
+		var s_col := Color(0.45, 0.40, 0.35)
+		var t_col := Color(0.72, 0.68, 0.62)
+		var ocean_col := Color(0.1, 0.3, 0.7, 1.0)
+		var ocean_thresh := 0.0
+		var night_int := 0.0
+		match body.name:
+			"Mercury":
+				b_col = Color(0.55, 0.52, 0.48); s_col = Color(0.35, 0.33, 0.30)
+				t_col = Color(0.70, 0.68, 0.65)
+			"Venus":
+				b_col = Color(0.92, 0.82, 0.52); s_col = Color(0.82, 0.68, 0.38)
+				t_col = Color(1.0, 0.94, 0.72)
+			"Earth":
+				surface_type = SURFACE_EARTH
+				b_col = Color(0.18, 0.58, 0.20); s_col = Color(0.48, 0.40, 0.26)
+				t_col = Color(0.85, 0.82, 0.75)
+				ocean_col = Color(0.04, 0.22, 0.75)
+				ocean_thresh = 0.40; night_int = 0.75
+			"Moon":
+				b_col = Color(0.50, 0.50, 0.50); s_col = Color(0.32, 0.32, 0.32)
+				t_col = Color(0.75, 0.75, 0.75)
+			"Mars":
+				b_col = Color(0.82, 0.36, 0.18); s_col = Color(0.45, 0.22, 0.14)
+				t_col = Color(0.95, 0.95, 1.0)
+		var lod_body := _setup_planet_body(body, root, surface_type,
+			b_col, s_col, t_col, ocean_col, ocean_thresh, night_int)
+		# The LOD body fades away when close so voxel terrain is the ground truth
+		# We track it by name — solar_system.gd can toggle visibility by distance
+		lod_body.set_meta("lod_orbital", true)
+
+	if body.type == StellarBody.TYPE_GAS:
+		_setup_gas_giant(body, root)
+		_setup_solid_collider(body, body.radius)
+	elif body.type == StellarBody.TYPE_ROCKY:
+		_setup_solid_collider(body, get_solid_core_radius(body))
 
 	if body.sea:
 		_setup_sea(body, root)
@@ -536,3 +797,26 @@ static func setup_stellar_body(body: StellarBody, parent: Node,
 		_setup_atmosphere(body, root, settings)
 	
 	return sun_light
+
+
+
+# Solid sphere collider so a planet can never be entered. For gas planets it is the whole planet,
+# for rocky ones it is an inner backstop under the voxel terrain (which streams in and can lag
+# behind a fast ship). Only in the tree while the body is the reference frame (see SolarSystem).
+static func _setup_solid_collider(body: StellarBody, core_radius: float):
+	var shape := SphereShape3D.new()
+	shape.radius = core_radius
+	var cs := CollisionShape3D.new()
+	cs.shape = shape
+	var sb := StaticBody3D.new()
+	sb.name = "SolidCore"
+	sb.add_child(cs)
+	body.static_bodies.append(sb)
+
+
+# Radius under which nothing may ever be. Rocky planets have terrain with caves and ravines below
+# their nominal radius, so this stays well inside the surface.
+static func get_solid_core_radius(body: StellarBody) -> float:
+	if body.type == StellarBody.TYPE_ROCKY:
+		return maxf(body.radius - 250.0, 0.5 * body.radius)
+	return body.radius

@@ -105,7 +105,7 @@ void atmosphere_vertex(
 }
 
 void atmosphere_fragment(
-	sampler2D depth_texture,
+	float nonlinear_depth, // sampled by the caller: samplers can't be function arguments in multiview (XR)
 	vec2 screen_uv,
 	mat4 inv_projection_matrix,
 	mat4 inv_view_matrix,
@@ -126,17 +126,23 @@ void atmosphere_fragment(
 #endif
 
 	// TODO Is depth texture really needed in the end?
-	float nonlinear_depth = texture(depth_texture, screen_uv).x;
 	// Note, we assume Vulkan here, which has NDC in 0..1 (OpenGL is -1..1)
 	vec3 ndc = vec3(screen_uv * 2.0 - 1.0, nonlinear_depth);
 	vec4 view_coords = inv_projection_matrix * vec4(ndc, 1.0);
 	//view_coords.xyz /= view_coords.w;
 	//float linear_depth = -view_coords.z; // Not what I want because it changes when looking around
 	vec4 world_coords = inv_view_matrix * view_coords;
-	vec3 pos_world = world_coords.xyz / world_coords.w;
+	// Guard: if world_coords.w is ~0 (sky pixel in Reverse-Z), set huge depth to avoid NaN/white box
+	vec3 pos_world;
+	if (abs(world_coords.w) < 0.0001) {
+		pos_world = (inv_view_matrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz + normalize(view_coords.xyz) * 1e7;
+	} else {
+		pos_world = world_coords.xyz / world_coords.w;
+	}
 	vec3 cam_pos_world = (inv_view_matrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	// I wonder if there is a faster way to get to that distance...
 	float linear_depth = distance(cam_pos_world, pos_world);
+
 
 	// We'll evaluate the atmosphere in view space
 	vec3 ray_origin = vec3(0.0, 0.0, 0.0);

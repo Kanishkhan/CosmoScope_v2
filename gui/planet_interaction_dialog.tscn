@@ -1,0 +1,166 @@
+[gd_scene load_steps=8 format=3 uid="uid://planet_interaction_dialog"]
+
+[ext_resource type="Script" path="res://gui/planet_interaction_dialog.gd" id="1"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.04, 0.07, 0.16, 0.90)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.2, 0.55, 0.95, 0.85)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(0.0, 0.25, 0.7, 0.45)
+shadow_size = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_explore_normal"]
+bg_color = Color(0.08, 0.42, 0.85, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.35, 0.7, 1.0, 0.9)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_explore_hover"]
+bg_color = Color(0.15, 0.55, 1.0, 1.0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.6, 0.88, 1.0, 1.0)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission_normal"]
+bg_color = Color(0.85, 0.40, 0.08, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1.0, 0.65, 0.25, 0.9)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission_hover"]
+bg_color = Color(1.0, 0.52, 0.12, 1.0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1.0, 0.85, 0.5, 1.0)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_btn"]
+bg_color = Color(0.12, 0.16, 0.28, 0.7)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="PlanetInteractionDialog" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1")
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -440.0
+offset_top = 18.0
+offset_right = -18.0
+offset_bottom = 148.0
+grow_horizontal = 0
+mouse_filter = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 7
+
+[node name="HeaderRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="Panel/Margin/VBox/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.97, 1.0, 1.0)
+theme_override_font_sizes/font_size = 20
+text = "🪐 PLANET"
+
+[node name="StatusBadge" type="Label" parent="Panel/Margin/VBox/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.95, 0.55, 1.0)
+theme_override_font_sizes/font_size = 12
+text = "● IN VICINITY"
+
+[node name="Spacer" type="Control" parent="Panel/Margin/VBox/HeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MouseToggleBtn" type="Button" parent="Panel/Margin/VBox/HeaderRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+theme_override_styles/normal = SubResource("StyleBoxFlat_tab_btn")
+text = "🖱️ [Tab] Mouse"
+tooltip_text = "Press Tab to toggle mouse cursor visibility"
+
+[node name="MissionDesc" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.82, 0.92, 0.9)
+theme_override_font_sizes/font_size = 12
+text = "Mission description goes here."
+text_overrun_behavior = 3
+
+[node name="ButtonRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ExploreBtn" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+custom_minimum_size = Vector2(180, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 2
+theme_override_font_sizes/font_size = 14
+theme_override_styles/normal = SubResource("StyleBoxFlat_explore_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_explore_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_explore_hover")
+text = "🚀 EXPLORE  [E]"
+
+[node name="MissionBtn" type="Button" parent="Panel/Margin/VBox/ButtonRow"]
+custom_minimum_size = Vector2(200, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 2
+theme_override_font_sizes/font_size = 14
+theme_override_styles/normal = SubResource("StyleBoxFlat_mission_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_mission_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_mission_hover")
+text = "🎯 PLAY MISSION  [M]"

@@ -1,16 +1,27 @@
 extends Node
 
 const Settings = preload("res://settings.gd")
+const XRManager = preload("res://xr/xr_manager.gd")
 
 @onready var _main_menu : Control = $MainMenu
 @onready var _settings_ui : Control = $SettingsUI
 
 var _settings := Settings.new()
 var _game : SolarSystem
+var _xr : XRManager
 
 
 func _ready():
 	_settings_ui.set_settings(_settings)
+
+	# XR (VR/AR) is optional: without a headset/OpenXR runtime this stays in desktop mode
+	_xr = XRManager.new()
+	_xr.name = "XRManager"
+	add_child(_xr)
+	_xr.setup()
+	if _xr.is_xr_active():
+		# The 2D main menu is not visible in a headset: start the game directly
+		_on_MainMenu_start_requested.call_deferred()
 
 
 func _on_MainMenu_start_requested():
@@ -22,6 +33,7 @@ func _on_MainMenu_start_requested():
 	_game.set_settings_ui(_settings_ui)
 	_game.exit_to_menu_requested.connect(_on_game_exit_to_menu_requested)
 	add_child(_game)
+	_xr.bind_game(_game)
 
 
 func _on_MainMenu_settings_requested():
@@ -33,9 +45,13 @@ func _on_MainMenu_exit_requested():
 
 
 func _on_game_exit_to_menu_requested():
+	_xr.unbind_game()
 	_game.queue_free()
 	_game = null
 	_main_menu.show()
+	if _xr.is_xr_active():
+		# No 2D menu in a headset
+		get_tree().quit()
 
 
 func _process(delta):

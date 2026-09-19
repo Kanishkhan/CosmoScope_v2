@@ -1,0 +1,103 @@
+[gd_scene load_steps=4 format=3 uid="uid://fast_travel_ui"]
+
+[ext_resource type="Script" path="res://gui/fast_travel_ui.gd" id="1_ftui"]
+[ext_resource type="Script" path="res://gui/warp_lines.gd" id="2_warp"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.04, 0.07, 0.16, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.3, 0.65, 1.0, 1.0)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+content_margin_left = 16.0
+content_margin_right = 16.0
+content_margin_top = 16.0
+content_margin_bottom = 16.0
+
+[node name="FastTravelUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("1_ftui")
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 0
+offset_left = -185.0
+offset_top = -120.0
+offset_right = 185.0
+offset_bottom = 120.0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+text = "FAST TRAVEL"
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.35, 0.78, 1.0, 1.0)
+
+[node name="Label" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+text = "Travel to this planet?"
+theme_override_font_sizes/font_size = 19
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+autowrap_mode = 3
+
+[node name="HSeparator" type="HSeparator" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="Buttons" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 20
+
+[node name="ConfirmBtn" type="Button" parent="Panel/VBox/Buttons"]
+layout_mode = 2
+custom_minimum_size = Vector2(130, 42)
+text = "Travel"
+theme_override_font_sizes/font_size = 14
+
+[node name="CancelBtn" type="Button" parent="Panel/VBox/Buttons"]
+layout_mode = 2
+custom_minimum_size = Vector2(130, 42)
+text = "Cancel"
+theme_override_font_sizes/font_size = 14
+
+[node name="WarpOverlay" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.18, 0.48, 1.0, 1.0)
+visible = false
+mouse_filter = 2
+
+[node name="WarpLines" type="Control" parent="WarpOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("2_warp")

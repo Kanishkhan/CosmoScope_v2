@@ -60,9 +60,10 @@ var _planet_damping_amount := 0.0 # TODO Doesnt need to be a member var
 var _ref_change_info : ReferenceChangeInfo
 var _was_superspeed := false
 var _last_contacts_count := 0
+var _clear_vel := false  # set by clear_velocity_next_frame(); zeroed in _integrate_forces
 
-var _speed_cap_in_space_superspeed_multiplier := 10.0
-var _linear_acceleration_superspeed_multiplier := 15.0
+var _speed_cap_in_space_superspeed_multiplier := 25.0
+var _linear_acceleration_superspeed_multiplier := 30.0
 
 
 func _ready():
@@ -76,6 +77,7 @@ func _ready():
 	for n in _landed_nodes:
 		_landed_node_parents.append(n.get_parent())
 	
+	_setup_flashlight()
 	_visual_root.global_transform = global_transform
 	enable_controller()
 	
@@ -155,6 +157,13 @@ func set_superspeed_cmd(cmd: bool):
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D):
+	# Fast-travel warp: zero velocity the first frame after unfreeze
+	if _clear_vel:
+		_clear_vel = false
+		state.linear_velocity  = Vector3.ZERO
+		state.angular_velocity = Vector3.ZERO
+		return
+
 	if _ref_change_info != null:
 		# Teleport
 		state.transform = _ref_change_info.inverse_transform * state.transform
@@ -169,9 +178,52 @@ func _integrate_forces(state: PhysicsDirectBodyState3D):
 	var stellar_body : StellarBody = get_solar_system().get_reference_stellar_body()
 	var linear_acceleration_mod := linear_acceleration
 	var speed_cap_in_space_mod := speed_cap_in_space
-	
+
+	const BRAKE_START_DIST := 500.0   # metres above surface — superspeed cuts here
+	const BRAKE_STOP_DIST  := 30.0    # metres above surface — from here down it is a slow touchdown
+
+	# Proximity check to all planets for auto-braking
+	var ss := get_solar_system()
+	var near_planet := false
+	var near_planet_surface_dist := 999999.0
+	var planet_approach_dir := Vector3.ZERO
+	var nearest_radius := 1000.0
+	if ss != null:
+		for i in ss.get_stellar_body_count():
+			var b : StellarBody = ss.get_stellar_body(i)
+			if b.type == StellarBody.TYPE_SUN:
+				continue
+			var b_pos := b.node.global_transform.origin
+			var dist_to_center := b_pos.distance_to(gtrans.origin)
+			var dist_to_surf := dist_to_center - b.radius
+			# Fixed detection range: 1000 m above surface
+			if dist_to_surf < BRAKE_START_DIST:
+				if not near_planet or dist_to_surf < near_planet_surface_dist:
+					near_planet = true
+					near_planet_surface_dist = dist_to_surf
+					planet_approach_dir = (b_pos - gtrans.origin).normalized()
+					nearest_radius = b.radius
+
+	# Hard safety: never let the ship get inside any body (fast ships can tunnel through terrain
+	# that has not finished streaming). Push it back out and cancel the inward velocity.
+	if ss != null:
+		for i in ss.get_stellar_body_count():
+			var cb : StellarBody = ss.get_stellar_body(i)
+			var core_r := cb.radius if cb.type == StellarBody.TYPE_SUN \
+				else SolarSystemSetup.get_solid_core_radius(cb)
+			var to_ship := gtrans.origin - cb.node.global_transform.origin
+			var d := to_ship.length()
+			if d < core_r + 5.0:
+				var out_dir := to_ship / d if d > 0.001 else Vector3.UP
+				state.transform.origin = cb.node.global_transform.origin + out_dir * (core_r + 5.0)
+				var inward := -state.linear_velocity.dot(out_dir)
+				if inward > 0.0:
+					state.linear_velocity += out_dir * inward
+				gtrans = state.transform
+
 	var superspeed := false
-	if _superspeed_cmd and stellar_body.type == StellarBody.TYPE_SUN:
+	# Disengage superspeed at 1000 m from surface
+	if _superspeed_cmd:
 		speed_cap_in_space_mod *= _speed_cap_in_space_superspeed_multiplier
 		linear_acceleration_mod *= _linear_acceleration_superspeed_multiplier
 		superspeed = true
@@ -196,19 +248,11 @@ func _integrate_forces(state: PhysicsDirectBodyState3D):
 	state.apply_torque_impulse(right * _turn_cmd.y * angular_acceleration)
 	state.apply_torque_impulse(forward * _turn_cmd.z * angular_acceleration)
 
-	# Angular damping?
-	#state.apply_torque_impulse(-state.angular_velocity * 0.01)
-
 	# Planet influence
 	if stellar_body.type != StellarBody.TYPE_SUN:
 		var pull_center := stellar_body.node.global_transform.origin
 		var distance_to_core := pull_center.distance_to(gtrans.origin)
 
-		# Gravity
-		# TODO Need a No-Man-Sky-esque mechanic to land without gravity
-		# In case you dive into a stellar body, gravity actually reduces as you get closer to
-		# the core, because some mass is now behind you
-		# TODO Explicit typing should not be needed, there is a bug in GDScript2
 		var gd : float = absf(distance_to_core - stellar_body.radius) + stellar_body.radius
 		var gravity_dir := (pull_center - gtrans.origin).normalized()
 		var stellar_mass := Util.get_sphere_volume(stellar_body.radius)
@@ -221,7 +265,22 @@ func _integrate_forces(state: PhysicsDirectBodyState3D):
 		_planet_damping_amount = \
 			1.0 - clampf((distance_to_surface - 50.0) / stellar_body.radius, 0.0, 1.0)
 		DDD.set_text("Atmosphere damping amount", _planet_damping_amount)
-		speed_cap = lerpf(speed_cap_in_space_mod, speed_cap_on_planet, _planet_damping_amount)
+		speed_cap = minf(speed_cap_in_space_mod, maxf(speed_cap_on_planet, distance_to_surface * 3.0))
+
+	# Proximity Auto-Brake: smooth ramp from 500 m down to a slow touchdown speed (no invisible wall:
+	# the ship must be able to land on walkable bodies)
+	if near_planet:
+		# brake_t: 0.0 at 1000 m, 1.0 at 500 m
+		var brake_t := clampf(
+			1.0 - (near_planet_surface_dist - BRAKE_STOP_DIST) / (BRAKE_START_DIST - BRAKE_STOP_DIST),
+			0.0, 1.0)
+		# Speed cap drops from normal planet speed to ~10% as you close in
+		speed_cap = minf(speed_cap, maxf(speed_cap_on_planet * 0.1, (near_planet_surface_dist - BRAKE_STOP_DIST) * 3.0))
+		# Cancel inward velocity aggressively
+		var inward_speed := state.linear_velocity.dot(planet_approach_dir)
+		if inward_speed > 0.0:
+			var brake_rate := brake_t * brake_t * 4.0 * state.step
+			state.linear_velocity -= planet_approach_dir * inward_speed * clampf(brake_rate, 0.0, 1.0)
 	
 	var speed := state.linear_velocity.length()
 	if speed > speed_cap:
@@ -253,3 +312,55 @@ func _integrate_forces(state: PhysicsDirectBodyState3D):
 func get_last_contacts_count() -> int:
 	return _last_contacts_count
 
+
+
+func is_flying() -> bool:
+	return _state == STATE_FLYING
+
+
+func get_controller() -> ShipController:
+	return _controller
+
+
+# ─── Flashlight ──────────────────────────────────────────────────────────────
+# A spotlight on the nose of the ship (key F / gamepad X / XR left grip while flying). It lights
+# dark sides of planets, shadowed craters and night landings.
+
+var _flashlight : SpotLight3D
+var _flashlight_audio : AudioStreamPlayer
+
+const FlashOnSound = preload("res://sounds/flash_on.wav")
+const FlashOffSound = preload("res://sounds/flash_off.wav")
+
+
+func _setup_flashlight() -> void:
+	_flashlight = SpotLight3D.new()
+	_flashlight.name = "Flashlight"
+	_flashlight.light_color = Color(1.0, 0.97, 0.88)
+	_flashlight.light_energy = 14.0
+	_flashlight.spot_range = 400.0
+	_flashlight.spot_angle = 30.0
+	_flashlight.spot_attenuation = 0.7
+	_flashlight.shadow_enabled = false
+	_flashlight.visible = false
+	# The ship points along -Z: mount the light on the nose
+	_flashlight.position = Vector3(0.0, 0.3, -3.5)
+	_visual_root.add_child(_flashlight)
+	_flashlight_audio = AudioStreamPlayer.new()
+	add_child(_flashlight_audio)
+
+
+func is_flashlight_on() -> bool:
+	return _flashlight != null and _flashlight.visible
+
+
+func set_flashlight(on: bool) -> void:
+	if _flashlight == null or _flashlight.visible == on:
+		return
+	_flashlight.visible = on
+	_flashlight_audio.stream = FlashOnSound if on else FlashOffSound
+	_flashlight_audio.play()
+
+
+func toggle_flashlight() -> void:
+	set_flashlight(not is_flashlight_on())

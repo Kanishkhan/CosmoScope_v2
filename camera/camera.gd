@@ -134,12 +134,9 @@ func _physics_process(delta: float):
 		#var hit_normal = hit.normal
 		trans.origin = hit.position + 0.3 * hit.normal
 	
-	# Add latency (using interpolation)
-#	var q1 = Quat(prev_trans.basis)
-#	var q2 = Quat(trans.basis)
-#	var q = q1.slerp(q2, 20.0 * delta)
-#	trans.basis = Basis(q)
-	trans = prev_trans.interpolate_with(trans, 25.0 * delta)
+	# Add latency (using interpolation) only during normal flight
+	if _wait_for_fucking_physics == 0:
+		trans = prev_trans.interpolate_with(trans, 25.0 * delta)
 	
 	# Assign final transform
 	transform = trans

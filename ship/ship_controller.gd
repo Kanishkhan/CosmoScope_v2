@@ -13,6 +13,8 @@ const SS_Camera = preload("res://camera/camera.gd")
 
 var _turn_cmd := Vector3()
 var _exit_ship_cmd := false
+# Set by the XR rig: keyboard/mouse are then ignored and the rig drives the ship commands directly
+var xr_override := false
 
 
 func set_enabled(enabled: bool):
@@ -20,7 +22,14 @@ func set_enabled(enabled: bool):
 	set_process_input(enabled)
 
 
+func request_exit_ship():
+	_exit_ship_cmd = true
+
+
 func _process(delta: float):
+	if xr_override:
+		return
+
 	if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED:
 		# The UI probably has focus
 		return
@@ -36,9 +45,9 @@ func _process(delta: float):
 #	if Input.is_key_pressed(KEY_D):
 #		motor.x += 1
 	if Input.is_key_pressed(KEY_SPACE):
-		motor.y += 1
+		motor.z += 1.0
 	if Input.is_key_pressed(KEY_SHIFT):
-		motor.y -= 1
+		motor.z -= 1.0
 
 	if Input.is_key_pressed(KEY_A):
 		_turn_cmd.z -= keyboard_turn_sensitivity
@@ -119,7 +128,8 @@ func _try_exit_ship():
 	var character : Node3D = CharacterScene.instantiate()
 	character.position = spawn_pos
 	ship.get_parent().add_child(character)
-	var camera : SS_Camera = get_viewport().get_camera_3d()
+	var camera : SS_Camera = ship.get_solar_system().get_game_camera()
+	character.add_to_group(&"xr_character")
 	camera.set_target(character)
 	ship.disable_controller()
 
@@ -143,6 +153,8 @@ func _input(event: InputEvent):
 			match event.keycode:
 				KEY_E:
 					_exit_ship_cmd = true
+				KEY_F:
+					_ship.toggle_flashlight()
 
 
 # TODO Temporary, need to replace this with a rocket launcher
@@ -173,3 +185,11 @@ func _process_dig_actions():
 				vt.mode = VoxelTool.MODE_REMOVE
 				vt.do_sphere(pos, sphere_size)
 
+
+
+# Gamepad: X toggles the ship's flashlight (the keyboard uses F, see _input)
+func _unhandled_input(event: InputEvent):
+	if xr_override or not is_processing():
+		return
+	if event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_X:
+		_ship.toggle_flashlight()

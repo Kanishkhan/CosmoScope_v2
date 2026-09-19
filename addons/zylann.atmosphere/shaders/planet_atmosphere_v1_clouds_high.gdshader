@@ -22,7 +22,7 @@ void vertex() {
 
 void fragment() {
 	bool b_discard = false;
-	atmosphere_fragment(u_depth_texture, SCREEN_UV, INV_PROJECTION_MATRIX, INV_VIEW_MATRIX, 
+	atmosphere_fragment(texture(u_depth_texture, SCREEN_UV).x, SCREEN_UV, INV_PROJECTION_MATRIX, INV_VIEW_MATRIX, 
 		VIEWPORT_SIZE, v_planet_center_viewspace, v_sun_center_viewspace, ALBEDO, ALPHA, b_discard);
 	if (b_discard) {
 		discard;

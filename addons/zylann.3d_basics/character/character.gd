@@ -28,6 +28,8 @@ var _jump_cmd := 0
 var _motor := Vector3()
 var _planet_up := Vector3(0, 1, 0)
 var _landed := false
+# 1.0 = normal; missions lower it (e.g. Moon parkour)
+var gravity_scale := 1.0
 
 
 func jump():
@@ -94,7 +96,7 @@ func _physics_process(delta : float):
 			_velocity = Vector3()
 	else:
 		# Apply gravity
-		_velocity -= planet_up * GRAVITY * delta
+		_velocity -= planet_up * GRAVITY * gravity_scale * delta
 
 	var space_state = get_world_3d().direct_space_state
 	var ray_query := PhysicsRayQueryParameters3D.new()

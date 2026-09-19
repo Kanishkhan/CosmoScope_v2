@@ -10,6 +10,7 @@ const CharacterBody = preload("res://addons/zylann.3d_basics/character/character
 const SplitChunkRigidBodyComponent = preload("../solar_system/split_chunk_rigidbody_component.gd")
 const CharacterAudio = preload("./character_audio.gd")
 const Waypoint = preload("res://waypoints/waypoint.gd")
+const SS_Camera = preload("res://camera/camera.gd")
 
 const WaypointScene = preload("../waypoints/waypoint.tscn")
 
@@ -30,7 +31,13 @@ var _dig_cmd := false
 var _interact_cmd := false
 var _build_cmd := false
 var _waypoint_cmd := false
+var _return_to_ship_cmd := false
 var _last_motor := Vector3()
+# XR rig hooks: extra movement input, and an optional node (controller) used to aim instead of the camera
+signal dug(position: Vector3) # emitted when the player digs the terrain (missions listen)
+
+var xr_motor := Vector3()
+var xr_aim : Node3D = null
 
 
 func _physics_process(delta):
@@ -46,6 +53,9 @@ func _physics_process(delta):
 		motor += Vector3(1, 0, 0)
 	
 	var character_body := _get_body()
+	motor += xr_motor
+	motor.x = clampf(motor.x, -1.0, 1.0)
+	motor.z = clampf(motor.z, -1.0, 1.0)
 	character_body.set_motor(motor)
 
 	var planet_center := Vector3()
@@ -93,11 +103,15 @@ func _process_actions():
 		_interact_cmd = false
 		_interact()
 
+	if _return_to_ship_cmd:
+		_return_to_ship_cmd = false
+		_return_to_ship()
+
 	var character_body := _get_body()
 	
-	var camera := get_viewport().get_camera_3d()
-	var front := -camera.global_transform.basis.z
-	var cam_pos := camera.global_transform.origin
+	var aim_trans := _get_aim_transform()
+	var front := -aim_trans.basis.z
+	var cam_pos := aim_trans.origin
 	var space_state := character_body.get_world_3d().direct_space_state
 	
 	var ray_query := PhysicsRayQueryParameters3D.new()
@@ -126,9 +140,10 @@ func _process_actions():
 				vt.mode = VoxelTool.MODE_REMOVE
 				vt.do_sphere(pos, sphere_size)
 				_audio.play_dig(pos)
+				dug.emit(hit_position)
 
 				var splitter_aabb := AABB(pos, Vector3()).grow(16.0)
-				var bodies := vt.separate_floating_chunks(splitter_aabb, camera.get_parent())
+				var bodies := vt.separate_floating_chunks(splitter_aabb, _get_solar_system())
 				print("Created ", len(bodies), " bodies")
 				for body in bodies:
 					var cmp := SplitChunkRigidBodyComponent.new()
@@ -171,6 +186,8 @@ func _unhandled_input(event: InputEvent):
 						_audio.play_light_off()
 				KEY_T:
 					_waypoint_cmd = true
+				KEY_R:
+					_return_to_ship_cmd = true
 					
 	elif event is InputEventMouseButton:
 		if event.pressed:
@@ -184,9 +201,9 @@ func _unhandled_input(event: InputEvent):
 func _interact():
 	var character_body := _get_body()
 	var space_state := character_body.get_world_3d().direct_space_state
-	var camera := get_viewport().get_camera_3d()
-	var front := -camera.global_transform.basis.z
-	var pos := camera.global_transform.origin
+	var aim_trans := _get_aim_transform()
+	var front := -aim_trans.basis.z
+	var pos := aim_trans.origin
 
 	var ray_query := PhysicsRayQueryParameters3D.new()
 	ray_query.from = pos
@@ -204,10 +221,22 @@ func _interact():
 
 
 func _enter_ship(ship: Ship):
-	var camera = get_viewport().get_camera_3d()
+	var camera : SS_Camera = _get_solar_system().get_game_camera()
 	camera.set_target(ship)
 	ship.enable_controller()
 	_get_body().queue_free()
+
+
+# Instantly return to the ship from anywhere on a planet (press R)
+func _return_to_ship():
+	var solar_system := _get_solar_system()
+	if solar_system == null:
+		return
+	var ship := solar_system.get_ship()
+	if ship == null:
+		print("No ship found!")
+		return
+	_enter_ship(ship)
 
 
 func _process(delta: float):
@@ -260,3 +289,32 @@ static func get_flat_forward_not_normalized(basis: Basis, ground_up: Vector3) ->
 			forward_projected = plane.project(-basis.y)
 	# Output is not normalized because it is not always necessary depending on usage
 	return forward_projected
+
+
+func _get_aim_transform() -> Transform3D:
+	if xr_aim != null and xr_aim.is_inside_tree():
+		return xr_aim.global_transform
+	return get_viewport().get_camera_3d().global_transform
+
+
+# Discrete actions for the XR rig (same effects as the keyboard/mouse bindings)
+func xr_action(action: StringName):
+	match action:
+		&"dig":
+			_dig_cmd = true
+		&"build":
+			_build_cmd = true
+		&"waypoint":
+			_waypoint_cmd = true
+		&"interact":
+			_interact_cmd = true
+		&"return_ship":
+			_return_to_ship_cmd = true
+		&"jump":
+			_get_body().jump()
+		&"flashlight":
+			_flashlight.visible = not _flashlight.visible
+			if _flashlight.visible:
+				_audio.play_light_on()
+			else:
+				_audio.play_light_off()

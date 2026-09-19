@@ -1,2 +1,5 @@
 .godot/
 debug_data/*
+
+# Local test output
+scratch/shots/

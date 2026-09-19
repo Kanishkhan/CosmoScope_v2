@@ -6,7 +6,7 @@
 [ext_resource type="Shader" path="res://ship/speed_particles.gdshader" id="4"]
 [ext_resource type="Script" path="res://ship/motion_particles.gd" id="5"]
 [ext_resource type="Texture2D" uid="uid://cb4femk463wd7" path="res://ship/speed_particle.png" id="6"]
-[ext_resource type="PackedScene" uid="uid://2wk63qthu4s2" path="res://ship/model/ship.gltf" id="7"]
+[ext_resource type="PackedScene" path="res://ship/model/ship.gltf" id="7"]
 [ext_resource type="PackedScene" path="res://ship/jet_vfx.tscn" id="8"]
 [ext_resource type="AudioStream" uid="uid://wpud85h204s3" path="res://sounds/jet.wav" id="9"]
 [ext_resource type="Script" path="res://ship/ship_audio.gd" id="10"]
