@@ -139,12 +139,24 @@ func draw_ray_3d(origin: Vector3, direction: Vector3, length: float, color : Col
 	draw_line_3d(origin, origin + direction * length, color)
 
 
+## @brief When non-empty, only keys listed here are shown on the HUD; all other
+## set_text() calls are silently dropped. Leave empty to show everything
+## (the original behavior).
+var text_whitelist : PackedStringArray = PackedStringArray([
+	"FPS",
+	"Reference body",
+	"Speed",
+])
+
+
 ## @brief Adds a text monitoring line to the HUD, from the provided value.
 ## It will be shown as such: - {key}: {text}
 ## Multiple calls with the same `key` will override previous text.
 ## @param key: identifier of the line
 ## @param text: text to show next to the key
 func set_text(key: String, value=""):
+	if not text_whitelist.is_empty() and not text_whitelist.has(key):
+		return
 	_texts[key] = {
 		"text": value if typeof(value) == TYPE_STRING else str(value),
 		"frame": Engine.get_frames_drawn() + TEXT_LINGER_FRAMES
