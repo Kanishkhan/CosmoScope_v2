@@ -36,6 +36,9 @@ signal player_spawned
 @onready var _hud : HUD = $HUD
 @onready var _pause_menu : PauseMenu = $PauseMenu
 @onready var _lens_flare : LensFlare = $LensFlare
+@onready var _loading_screen : ColorRect = $LoadingScreen
+@onready var _loading_label : Label = $LoadingScreen/CC/PC/VB/Label
+@onready var _loading_progress_bar : ProgressBar = $LoadingScreen/CC/PC/VB/ProgressBar
 
 var _ship : Ship = null
 var _game_camera : SS_Camera = null
@@ -683,28 +686,28 @@ func _finish_warp() -> void:
 	_fast_travel_ui.end_warp_vfx()
 
 
-func _notification(what: int):
-	match what:
-		NOTIFICATION_WM_CLOSE_REQUEST:
-			# Save game when the user closes the window
-			_save_world()
-
-
-func _save_world():
-	print("Saving world")
-	for body in _bodies:
-		if body.volume != null:
-			body.volume.save_modified_blocks()
-
-
 func _on_PauseMenu_exit_to_menu_requested():
-	_save_world()
+	_show_shutdown_overlay("Returning to menu…")
+	# Give the renderer a frame so the overlay is actually visible before the
+	# main thread blocks on the voxel engine's threaded teardown.
+	await get_tree().process_frame
+	await get_tree().process_frame
 	exit_to_menu_requested.emit()
 
 
 func _on_PauseMenu_exit_to_os_requested():
-	_save_world()
+	_show_shutdown_overlay("Shutting down…")
+	await get_tree().process_frame
+	await get_tree().process_frame
 	get_tree().quit()
+
+
+func _show_shutdown_overlay(message: String) -> void:
+	_pause_menu.hide()
+	if _loading_progress_bar != null:
+		_loading_progress_bar.visible = false
+	_loading_label.text = message
+	_loading_screen.visible = true
 
 
 func _on_PauseMenu_resume_requested():
