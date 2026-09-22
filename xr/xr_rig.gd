@@ -11,8 +11,8 @@
 #             right stick sideways = snap turn, right trigger = dig, left trigger = build,
 #             A = jump, B = return to ship, left grip = flashlight, right grip = waypoint,
 #             left stick click = toggle smooth movement.
-#     EXPLORE / PLAY MISSION panel (walkable bodies only): point the right laser at a button and
-#             pull the trigger; or left X = PLAY MISSION, left menu button = EXPLORE.
+#     PLAY MISSION panel (walkable bodies only): point the right laser at the button and pull
+#             the trigger; or left X = PLAY MISSION, left menu button = dismiss panel.
 # AR: a live tabletop model of the Solar System (xr_orrery.gd) is anchored in the room and the
 #     passthrough shows the real world around it (OpenXR world_scale is capped at 1000, so the real
 #     Solar System cannot simply be shrunk). Aim at a surface and pull the trigger to place it;
@@ -39,11 +39,10 @@ const ORRERY_SCALE_MIN := 0.3
 const ORRERY_SCALE_MAX := 4.0
 const AR_PLACE_DISTANCE := 1.2
 
-# Laser-clickable EXPLORE / PLAY MISSION panel (metres, in the panel's own space)
+# Laser-clickable PLAY MISSION panel (metres, in the panel's own space)
 const PANEL_SIZE := Vector2(0.32, 0.17)
 const PANEL_BUTTON_SIZE := Vector2(0.14, 0.06)
-const PANEL_EXPLORE_CENTER := Vector2(-0.08, -0.04)
-const PANEL_MISSION_CENTER := Vector2(0.08, -0.04)
+const PANEL_MISSION_CENTER := Vector2(0.0, -0.04)
 
 const VIGNETTE_SHADER_CODE := """
 shader_type spatial;
@@ -79,12 +78,11 @@ var _arc_material : StandardMaterial3D
 var _reticle : MeshInstance3D
 var _orrery : XROrrery
 
-# EXPLORE / PLAY MISSION panel
+# PLAY MISSION panel
 var _panel : Node3D
 var _panel_title : Label3D
-var _panel_explore_mat : StandardMaterial3D
 var _panel_mission_mat : StandardMaterial3D
-var _panel_hover := 0 # 0 none, 1 explore, 2 mission
+var _panel_hover := 0 # 0 none, 2 mission
 
 var _spawned := false
 var _hint_time := 0.0
@@ -324,9 +322,9 @@ func _build_visuals() -> void:
 	add_child(_target_label)
 
 
-# The EXPLORE / PLAY MISSION panel: a small plate floating at the lower right of the view with two
-# buttons that the right laser can point at. It mirrors the 2D dialog in planet_interaction_dialog.gd
-# (which a headset cannot show) and calls the same activate_explore()/activate_mission().
+# The PLAY MISSION panel: a small plate floating at the lower right of the view with a single
+# button the right laser can point at. It mirrors the 2D dialog in planet_interaction_dialog.gd
+# (which a headset cannot show) and calls the same activate_mission().
 func _build_panel() -> void:
 	_panel = Node3D.new()
 	_panel.name = "InteractionPanel"
@@ -346,10 +344,8 @@ func _build_panel() -> void:
 	_panel_title.position = Vector3(0, 0.05, 0.003)
 	_panel.add_child(_panel_title)
 
-	_panel_explore_mat = _flat_material(Color(0.08, 0.42, 0.85, 0.95), true)
-	_panel_mission_mat = _flat_material(Color(0.85, 0.40, 0.08, 0.95), true)
-	_make_panel_button(PANEL_EXPLORE_CENTER, _panel_explore_mat, "🚀 EXPLORE")
-	_make_panel_button(PANEL_MISSION_CENTER, _panel_mission_mat, "🎯 PLAY MISSION")
+	_panel_mission_mat = _flat_material(Color(0.92, 0.62, 0.14, 0.95), true)
+	_make_panel_button(PANEL_MISSION_CENTER, _panel_mission_mat, "▶  BEGIN MISSION")
 
 
 func _make_panel_button(center: Vector2, mat: StandardMaterial3D, text: String) -> void:
@@ -469,8 +465,9 @@ func _process(delta: float) -> void:
 		trig_now = false
 
 
-	# EXPLORE / PLAY MISSION panel: laser button press or controller shortcuts. A trigger press
+	# PLAY MISSION panel: laser button press or controller shortcuts. A trigger press
 	# that hit a panel button must not also dig / warp / place, so it is consumed here.
+	# Left X starts the mission; left menu button dismisses the panel.
 	var panel_open := _update_panel()
 	if panel_open:
 		if trig_pressed and _panel_hover != 0:
@@ -481,7 +478,9 @@ func _process(delta: float) -> void:
 			_activate_panel_button(2)
 			x_pressed = false
 		if menu_pressed:
-			_activate_panel_button(1)
+			var dialog := _game.get_planet_dialog()
+			if dialog != null:
+				dialog.activate_close()
 	if _panel_hover != 0:
 		# Pointing at the panel: the trigger is for the panel only
 		trig_now = false
@@ -558,7 +557,7 @@ func _walk_transform(ch: Node3D) -> Transform3D:
 	return t
 
 
-# ── EXPLORE / PLAY MISSION panel ─────────────────────────────────────────────
+# ── PLAY MISSION panel ───────────────────────────────────────────────────────
 
 # Shows the panel while the 2D dialog is open and updates which button the right laser is on.
 # Returns whether the panel is open.
@@ -573,14 +572,12 @@ func _update_panel() -> bool:
 
 	var aim := _right.global_transform
 	_panel_hover = _panel_button_under_ray(aim.origin, -aim.basis.z)
-	_panel_explore_mat.albedo_color = Color(0.2, 0.6, 1.0, 1.0) if _panel_hover == 1 \
-		else Color(0.08, 0.42, 0.85, 0.95)
-	_panel_mission_mat.albedo_color = Color(1.0, 0.55, 0.15, 1.0) if _panel_hover == 2 \
-		else Color(0.85, 0.40, 0.08, 0.95)
+	_panel_mission_mat.albedo_color = Color(1.0, 0.75, 0.25, 1.0) if _panel_hover == 2 \
+		else Color(0.92, 0.62, 0.14, 0.95)
 	return true
 
 
-# 0 = none, 1 = EXPLORE, 2 = PLAY MISSION
+# 0 = none, 2 = PLAY MISSION (kept as 2 so existing button-code paths still map cleanly)
 func _panel_button_under_ray(origin: Vector3, dir: Vector3) -> int:
 	var inv := _panel.global_transform.affine_inverse()
 	var lo := inv * origin
@@ -592,8 +589,6 @@ func _panel_button_under_ray(origin: Vector3, dir: Vector3) -> int:
 		return 0
 	var p := lo + ld * t
 	var v := Vector2(p.x, p.y)
-	if _in_rect(v, PANEL_EXPLORE_CENTER, PANEL_BUTTON_SIZE):
-		return 1
 	if _in_rect(v, PANEL_MISSION_CENTER, PANEL_BUTTON_SIZE):
 		return 2
 	return 0
@@ -607,9 +602,7 @@ func _activate_panel_button(button: int) -> void:
 	var dialog := _game.get_planet_dialog()
 	if dialog == null:
 		return
-	if button == 1:
-		dialog.activate_explore()
-	elif button == 2:
+	if button == 2:
 		dialog.activate_mission()
 	_right.trigger_haptic_pulse(&"haptic", 0.0, 0.5, 0.1, 0.0)
 

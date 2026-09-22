@@ -913,4 +913,4 @@ func _show_debrief(won: bool, text: String) -> void:
 
 
 func _fail_facts() -> PackedStringArray:
-	return PackedStringArray(["Try again from the EXPLORE | PLAY MISSION panel - the environment is the challenge."])
+	return PackedStringArray(["Try again from the mission panel - the environment is the challenge."])

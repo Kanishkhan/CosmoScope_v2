@@ -190,30 +190,25 @@ func _test_walkable(name: String) -> void:
 	# --- Dialog -------------------------------------------------------------
 	var dialog = game.get_planet_dialog()
 	await get_tree().create_timer(1.0).timeout
-	_log(name, "EXPLORE|MISSION dialog shown", dialog.visible)
+	_log(name, "MISSION dialog shown", dialog.visible)
 	_log(name, "dialog names the right body", dialog.get_current_body_name() == name,
 		dialog.get_current_body_name())
 	await _shot(name + "_dialog")
 
-	# Mouse click on the buttons (mouse released like after Tab)
+	# Mouse click on the close button (mouse released like after Tab)
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	await get_tree().process_frame
-	var explored := [0]
+	var dismissed := [0]
 	var missioned := [0]
-	dialog.explore_pressed.connect(func(_n): explored[0] += 1)
+	dialog.dismissed.connect(func(): dismissed[0] += 1)
 	dialog.mission_pressed.connect(func(_n): missioned[0] += 1)
-	var eb: Button = dialog.get_node("Panel/Margin/VBox/ButtonRow/ExploreBtn")
-	var center: Vector2 = eb.get_global_rect().get_center()
+	var cb: Button = dialog.get_node("Panel/Margin/VBox/HeaderRow/CloseBtn")
+	var center: Vector2 = cb.get_global_rect().get_center()
 	await _click(center)
-	_log(name, "EXPLORE clickable (mouse)", explored[0] == 1)
-	# gamepad B = mission (do not start twice: only count)
-	var ev := InputEventJoypadButton.new()
-	ev.button_index = JOY_BUTTON_A
-	ev.pressed = true
-	Input.parse_input_event(ev)
+	_log(name, "close (✕) clickable (mouse)", dismissed[0] == 1)
+	# Re-open by calling show_for_planet directly, since dismiss hides the panel
+	dialog.show_for_planet(name)
 	await get_tree().process_frame
-	await get_tree().process_frame
-	_log(name, "EXPLORE via gamepad A", explored[0] == 2)
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 	# --- Mission (played like a player) ---------------------------------------

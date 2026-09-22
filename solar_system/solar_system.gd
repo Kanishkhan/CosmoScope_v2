@@ -156,7 +156,6 @@ func _ready():
 	if dialog_instance != null:
 		_planet_dialog = dialog_instance
 		add_child(_planet_dialog)
-		_planet_dialog.explore_pressed.connect(_on_planet_explore)
 		_planet_dialog.mission_pressed.connect(_on_planet_mission)
 		_planet_dialog.dismissed.connect(_on_planet_dialog_dismissed)
 	else:
@@ -343,7 +342,7 @@ func _update_planet_body_shaders() -> void:
 	var sun_body := _bodies[0]
 	var sun_pos := sun_body.node.global_transform.origin
 
-	# ── EXPLORE / PLAY MISSION prompt (top-right) ─────────────────────────
+	# ── PLAY MISSION prompt (top-right) ────────────────────────────────────
 	# Only for bodies you can walk on (Mercury, Venus, Earth, Mars, Moon) and only while on foot.
 	# Gas/ice giants stay flight-only experiences and never show it.
 	if _planet_dialog != null:
@@ -385,11 +384,6 @@ func _update_planet_body_shaders() -> void:
 					mi.visible = show_orbital
 					if body.volume != null:
 						body.volume.visible = not show_orbital
-
-
-func _on_planet_explore(body_name: String) -> void:
-	print("Exploring: ", body_name)
-	# Keep _dialog_shown_for set so it doesn't re-prompt while exploring
 
 
 func _on_planet_mission(body_name: String) -> void:
