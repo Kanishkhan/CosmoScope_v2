@@ -47,14 +47,14 @@ offset_bottom = 207.0
 offset_right = 1152.0
 offset_bottom = 48.0
 theme_override_font_sizes/font_size = 32
-text = "Solar System Demo"
+text = "CosmoScope"
 horizontal_alignment = 1
 
 [node name="Label2" type="Label" parent="VBoxContainer/PanelContainer/VBoxContainer"]
 offset_top = 52.0
 offset_right = 1152.0
 offset_bottom = 78.0
-text = "A voxel engine demo project"
+text = "Explore Solar System!"
 horizontal_alignment = 1
 
 [node name="Control2" type="Control" parent="VBoxContainer/PanelContainer/VBoxContainer"]
